@@ -8,9 +8,19 @@ description: Send the user questions, decisions, or status updates over Slack in
 The user wants questions, decisions, and updates delivered to Slack. A Slack credential is injected automatically
 for `https://slack.com/api/*` requests — never add an `Authorization` header and never ask for a token.
 
-**Channel:** messages go to the channel ID in the `SLACK_CHANNEL` environment variable. If the user names a channel,
-pass it for that call (`SLACK_CHANNEL=<id> <skill-dir>/slack.sh ...`). If neither is set, ask the user in chat for the channel ID
-once, then use it for the rest of the task. Only post to that channel.
+**Channel:** messages go to the channel saved in `<skill-dir>/.channel`; the `SLACK_CHANNEL` environment variable
+overrides it. Only post to that channel.
+
+## First run
+
+If `slack.sh` exits with code 3 (no channel configured), ask the user in chat:
+
+> Which Slack channel should I use? In Slack, right-click the channel (or your own DM) → **Copy** → **Copy link**, and
+> paste the link here.
+
+Then run `<skill-dir>/slack.sh setup "<link-or-id>"`. It posts a confirmation message to the channel and saves the ID only if
+that works, so it is never asked again. If the post fails with `channel_not_found` or `not_in_channel`, ask the user to
+add the Slack app to the channel or pick another one. Run `setup` again whenever the user wants a different channel.
 
 ## When this applies
 

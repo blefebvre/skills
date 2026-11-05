@@ -5,19 +5,27 @@
 #   slack.sh post [--thread <ts>] "<text>"   post, print message ts
 #   slack.sh ask  [--thread <ts>] "<text>"   post, then wait for a reply in the thread
 #   slack.sh wait <ts> [after-ts]            keep waiting for a reply to <ts>
+#   slack.sh setup <channel-link-or-id>      save the channel (posts a confirmation first)
 #
-# Requires SLACK_CHANNEL (target channel ID). Optional: SLACK_POLL_SECONDS, SLACK_POLL_TRIES.
-# Exit codes: 0 ok, 1 Slack API error, 2 timed out waiting for a reply.
+# Channel: $SLACK_CHANNEL if set, otherwise the ID saved by `setup` in .channel next to this script.
+# Optional: SLACK_POLL_SECONDS, SLACK_POLL_TRIES.
+# Exit codes: 0 ok, 1 Slack API error, 2 timed out waiting for a reply, 3 no channel configured.
 set -euo pipefail
 
+CHANNEL_FILE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/.channel"
 CHANNEL="${SLACK_CHANNEL:-}"
+if [ -z "$CHANNEL" ] && [ -f "$CHANNEL_FILE" ]; then CHANNEL=$(tr -d '[:space:]' <"$CHANNEL_FILE"); fi
 API="https://slack.com/api"
 POLL_SECONDS="${SLACK_POLL_SECONDS:-20}"
 POLL_TRIES="${SLACK_POLL_TRIES:-27}"
 
 die() { echo "slack: $*" >&2; exit 1; }
 
-[ -n "$CHANNEL" ] || die "SLACK_CHANNEL is not set (export SLACK_CHANNEL=<channel-id>)"
+require_channel() {
+  [ -n "$CHANNEL" ] && return 0
+  echo "slack: no channel configured. Ask the user for a Slack channel link or ID, then run: slack.sh setup <link-or-id>" >&2
+  exit 3
+}
 
 post() {
   local thread="$1" text="$2" body resp
@@ -53,6 +61,20 @@ thread=""
 if [ "${1:-}" = "--thread" ]; then thread="$2"; shift 2; fi
 
 case "$cmd" in
+  post|ask|wait) require_channel ;;
+esac
+
+case "$cmd" in
+  setup)
+    [ -n "${1:-}" ] || die "missing channel link or ID"
+    # accept a pasted channel link (.../archives/C0123ABCD) or a bare ID
+    id=$(sed -E 's#^.*/archives/([A-Z0-9]+).*$#\1#' <<<"$1")
+    [[ "$id" =~ ^[CGD][A-Z0-9]+$ ]] || die "not a channel link or ID: $1"
+    CHANNEL="$id"
+    post "" "Slack updates from your agent will be posted in this channel." >/dev/null
+    echo "$id" >"$CHANNEL_FILE"
+    echo "channel set to $id (saved to $CHANNEL_FILE)"
+    ;;
   post)
     [ -n "${1:-}" ] || die "missing message text"
     post "$thread" "$1"
@@ -68,6 +90,6 @@ case "$cmd" in
     wait_reply "$1" "${2:-$1}"
     ;;
   *)
-    die "usage: slack.sh post|ask [--thread <ts>] \"<text>\" | slack.sh wait <ts> [after-ts]"
+    die "usage: slack.sh post|ask [--thread <ts>] \"<text>\" | slack.sh wait <ts> [after-ts] | slack.sh setup <channel-link-or-id>"
     ;;
 esac

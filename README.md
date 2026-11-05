@@ -6,4 +6,4 @@ Agent skills following the [Agent Skills](https://agentskills.io) format. Each s
 
 | Skill | Description |
 | --- | --- |
-| [ema-slack-me](skills/ema-slack-me) | Send questions, decisions, and status updates over Slack and wait for replies. Requires `SLACK_CHANNEL`. |
+| [ema-slack-me](skills/ema-slack-me) | Send questions, decisions, and status updates over Slack and wait for replies. Asks for a channel on first run. |
